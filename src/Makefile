@@ -15,95 +15,84 @@
 # Use: make [TARGET] [PLATFORM-OVERRIDES]
 #
 # Build Targets:
-#      <Put a description of the supported targets here>
+#   write a makefile can compile multiple sources files and support two platform targets 
 #
 # Platform Overrides:
-#      <Put a description of the supported Overrides here
+#     PLATFORM=MSP432, the target is cross compiler for MSP432  ;
+#     PLATFORM=HOST , the target is native compiler 
 #
 #------------------------------------------------------------------------------
 include sources.mk
 
+TARGET = c1m2
+
+LINKER_FILE= ../msp432p401r.lds
+
+CPPFLAGs =    \
+      	      -I./../include/CMSIS \
+	      -I./../include/common \
+	      -I./../include/msp432
+
 # Platform Overrides
-PLATFORM = HOST
 
-# Common Flags
-FLAGS = -Wall \
-	-Werror \
-	-g \
-	-O0 \
-	-std=c99
-	
-TARGET = C1M2
+ifeq ($(PLATFORM),HOST)
+    PLATFORM=HOST
+    CC = gcc
+    LDFLAGS = -Wl,-Map=$(TARGET).map  
+    CFLAGS = -std=c99 -Werror -Wall -g -O0 -D$(PLATFORM)
+else
+#Architectures Specific Flags
+    PLATFORM=MSP432
+    CPU = cortex-m4
+    ARCH = thumb
+    SPECS = nosys.specs 
+    MARCH = armv7e-m
+    ABI = hard
+    FPU = fpv4-sp-d16
+    CC = arm-none-eabi-gcc
+    LD = arm-none-eabi-ld
+    SIZE = arm-none-eabi-size
+    LDFLAGS = -Wl,-Map=$(TARGET).map -T $(LINKER_FILE) 
+    CFLAGS = -std=c99 -Werror -mcpu=$(CPU) -m$(ARCH) --specs=$(SPECS) -march=$(MARCH) -mfloat-abi=$(ABI) -mfpu=$(FPU) -Wall -g -O0 -D$(PLATFORM)
+endif 
 
-ifeq ($(PLATFORM), MSP432)
-# Architectures Specific Flags
-	LINKER_FILE = -T msp432p401r.lds
-	CPU = cortex-m4
-	ARCH = armv7e-m
-	SPECS = nosys.specs
-	OTHER_SPECS = -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 
-	SOURCE = main.c \
-		 memory.c \
-		 interrupts_msp432p401r_gcc.c \
-		 startup_msp432p401r_gcc.c \
-		 system_msp432p401r.c
-	 
+
 # Compiler Flags and Defines
-	CC = arm-none-eabi-gcc
-	LINKER_PATH = -L ../
-	CPPFLAGS = -DMSP432 $(INCLUDES)
-	CFLAGS = $(FLAGS) $(OTHER_SPECS) -mcpu=$(CPU) -march=$(ARCH) --specs=$(SPECS)
-	CPPFLAGS = -DHOST $(INCLUDES)
-	LDFLAGS = -wl, -MAP=$(TARGET).map, $(LINKER_PATH) $(LINKERFILE)
-	SIZE = size
-endif
+OBJS = $(SOURCES:.c=.o)
+ASM = $(SOURCES:.c=.asm)
+I = $(SOURCES:.c=.i)
 
-
-ifeq ($(PLATFORM), HOST)
-# Compiler Flags and Defines
-	CC = gcc
-	CFLAGS = $(FLAGS)
-	CPPFLAGS = -DHOST $(INCLUDES)
-	LDFLAGS = -Wl, -Map=$(TARGET).map
-	SIZE = size
-endif
-
-
-OBJS = $(SOURCES: .c=.o)
-DEPS = $(SOURCES: .c=.d)
-ASMS = $(SOURCES: .c=.asm)
-PRES = $(SOURCES: .c=.i)
-
-# using -c flag to stop before linking
-%.o : %.c
-	$(CC) -c $< $(CPPFLAGS) $(CFLAGS) -o $@
-	
-# using -S to generate assembly file
 %.asm : %.c
-	$(CC) -S $< $(CPPFLAGS) $(CFLAGS) -o $@
+	$(CC) -c $< $(CPPFLAGs) $(CFLAGS) -S -o $@
 
-# using -E to generate preprocessed file
 %.i : %.c
-	$(CC) -E $< $(CPPFLAGS) -o $@
-	
-# using -E -M to generate dependency files
-%.d : %.c
-	$(CC) -E -M $< $(CPPFLAGS) -o $@
-	
-#compile-all will generate all object files for all source files without linking
-.PHONY: compile-all
-compile-all:$(OBJS)
+	$(CC) -c $< $(CPPFLAGs) $(CFLAGS) -E -o $@
+
+%.o : %.c
+	$(CC) -c $< $(CPPFLAGs) $(CFLAGS) -o $@
+
 
 .PHONY: build
-build: $(DEPS)
 build: $(TARGET).out
-
 $(TARGET).out: $(OBJS)
-	$(CC) $(OBJS) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-	$(SIZE) $@
-	
+	$(CC) $(OBJS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@
+	$(SIZE) -Atd $(TARGET).out
+	$(SIZE) -Btd $(OBJS)
+
+
+.PHONY: compile-all
+compile-all:
+	$(CC) $(CFLAGS) $(CPPFLAGs) -D$(PLATFORM) -c $(OBJS:.o=.c) 
+	$(SIZE) -Btd $(OBJS)	
 .PHONY: clean
 clean:
-	rm -f $(OBJS) $(DEPS) $(ASMS) $(PRES) $(TARGET).out $(TARGET).map 
+	rm -f $(OBJS) $(TARGET).out $(TARGET).map $(TARGET).i $(TARGET).asm $(I) $(ASM)
+
+.PHONY: debug    
+debug:
+	@echo $(CPPFLAGs)
+
+
+
 

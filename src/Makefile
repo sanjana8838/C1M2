@@ -31,7 +31,7 @@ LINKER_FILE= ../msp432p401r.lds
 CPPFLAGs =    \
       	      -I./../include/CMSIS \
 	      -I./../include/common \
-	      -I./../include/msp432
+	      -I./../include/MSP432
 
 # Platform Overrides
 

@@ -24,18 +24,51 @@
 include sources.mk
 
 # Platform Overrides
-PLATFORM = 
+PLATFORM = HOST
 
+# Common Flags
+FLAGS = -Wall \
+	-Werror \
+	-g \
+	-O0 \
+	-std=c99
+	
+	TARGET = C1M2
+
+ifeq ($(PLATFORM), MSP432)
 # Architectures Specific Flags
-LINKER_FILE = 
-CPU = 
-ARCH = 
-SPECS = 
+	LINKER_FILE = -T msp432p401r.lds
+	CPU = cortex-m4
+	ARCH = armv7e-m
+	SPECS = nosys.specs
+	OTHER_SPECS = -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 
+	SOURCE = main.c \
+		 memory.c \
+		 interrupts_msp432p401r_gcc.c \
+		 startup_msp432p401r_gcc.c \
+	 
 # Compiler Flags and Defines
-CC = 
-LD = 
-LDFLAGS = 
-CFLAGS = 
-CPPFLAGs = 
+	CC = arm-none-eabi-gcc
+	LINKER_PATH = -L ../
+	CPPFLAGS = -DMSP432 $(INCLUDES)
+	CFLAGS = $(FLAGS) $(OTHER_SPECS) -mcpu=$(CPU) -march=$(ARCH) --specs=$(SPECS)
+	LDFLAGS = -wl, -MAP=$(TARGET).map, $(LINKER_PATH) $(LINKERFILE)
+	SIZE = size
+endif
+
+OBJS = $(SOURCES: .c=.o)
+DEPS = $(SOURCES: .c=.d)
+ASMS = $(SOURCES: .c=.asm)
+PRES = $(SOURCES: .c=.i)
+
+
+ifeq ($(PLATFORM), HOST)
+# Compiler Flags and Defines
+	CC = gcc
+	CFLAGS = $(FLAGS)
+	CPPFLAGS = -DHOST $(INCLUDES)
+	LDFLAGS = -Wl, -Map=$(TARGET).map
+	SIZE = size
+endif
 

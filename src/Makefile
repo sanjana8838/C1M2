@@ -33,7 +33,7 @@ FLAGS = -Wall \
 	-O0 \
 	-std=c99
 	
-	TARGET = C1M2
+TARGET = C1M2
 
 ifeq ($(PLATFORM), MSP432)
 # Architectures Specific Flags
@@ -47,20 +47,17 @@ ifeq ($(PLATFORM), MSP432)
 		 memory.c \
 		 interrupts_msp432p401r_gcc.c \
 		 startup_msp432p401r_gcc.c \
+		 system_msp432p401r.c
 	 
 # Compiler Flags and Defines
 	CC = arm-none-eabi-gcc
 	LINKER_PATH = -L ../
 	CPPFLAGS = -DMSP432 $(INCLUDES)
 	CFLAGS = $(FLAGS) $(OTHER_SPECS) -mcpu=$(CPU) -march=$(ARCH) --specs=$(SPECS)
+	CPPFLAGS = -DHOST $(INCLUDES)
 	LDFLAGS = -wl, -MAP=$(TARGET).map, $(LINKER_PATH) $(LINKERFILE)
 	SIZE = size
 endif
-
-OBJS = $(SOURCES: .c=.o)
-DEPS = $(SOURCES: .c=.d)
-ASMS = $(SOURCES: .c=.asm)
-PRES = $(SOURCES: .c=.i)
 
 
 ifeq ($(PLATFORM), HOST)
@@ -71,4 +68,42 @@ ifeq ($(PLATFORM), HOST)
 	LDFLAGS = -Wl, -Map=$(TARGET).map
 	SIZE = size
 endif
+
+
+OBJS = $(SOURCES: .c=.o)
+DEPS = $(SOURCES: .c=.d)
+ASMS = $(SOURCES: .c=.asm)
+PRES = $(SOURCES: .c=.i)
+
+# using -c flag to stop before linking
+%.o : %.c
+	$(CC) -c $< $(CPPFLAGS) $(CFLAGS) -o $@
+	
+# using -S to generate assembly file
+%.asm : %.c
+	$(CC) -S $< $(CPPFLAGS) $(CFLAGS) -o $@
+
+# using -E to generate preprocessed file
+%.i : %.c
+	$(CC) -E $< $(CPPFLAGS) -o $@
+	
+# using -E -M to generate dependency files
+%.d : %.c
+	$(CC) -E -M $< $(CPPFLAGS) -o $@
+	
+#compile-all will generate all object files for all source files without linking
+.PHONY: compile-all
+compile-all:$(OBJS)
+
+.PHONY: build
+build: $(DEPS)
+build: $(TARGET).out
+
+$(TARGET).out: $(OBJS)
+	$(CC) $(OBJS) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+	$(SIZE) $@
+	
+.PHONY: clean
+clean:
+	rm -f $(OBJS) $(DEPS) $(ASMS) $(PRES) $(TARGET).out $(TARGET).map 
 

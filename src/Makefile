@@ -87,6 +87,7 @@ I = $(SOURCES:.c=.i)
 build: $(TARGET).out
 $(TARGET).out: $(OBJS)
 	$(CC) $(OBJS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@
+	$(SIZE) $@
 	
 
 

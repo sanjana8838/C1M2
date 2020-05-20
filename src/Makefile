@@ -10,7 +10,7 @@
 #*****************************************************************************
 
 #------------------------------------------------------------------------------
-# <Put a Description Here>
+# Makefile for an arm processor
 #
 # Use: make [TARGET] [PLATFORM-OVERRIDES]
 #
@@ -28,35 +28,31 @@
 #------------------------------------------------------------------------------
 include sources.mk
 
-# Platform Overrides
+TARGET = c1m2
+
 PLATFORM = HOST
 
 LINKER_FILE= ../msp432p401r.lds
 
-CPPFLAGs =    \
-      	      -I./../include/CMSIS \
-	      -I./../include/common \
-	      -I./../include/msp432
 
-#Common Flags
-FLAGS = -Wall \
-	-Werror\
-	-g \
-	-O0\
-	-std=c99
-TARGET = c1m2
-     
+
+# Platform Overrides
+
 ifeq ($(PLATFORM),HOST)
-	CC = gcc
-	CFLAGS = $(FLAGS)
-	/*CPPFLAGS = -DHOST $(INCLUDES)*/
-	LDFLAGS = -Wl,-Map=$(TARGET).map
-	SIZE = size
-endif
-
-ifeq ($(PLATFORM),MSP432)
-	# Architectures Specific Flags
-	 PLATFORM=MSP432
+    PLATFORM=HOST
+    CC = gcc
+    LDFLAGS = -Wl,-Map=$(TARGET).map  
+    CFLAGS = -std=c99 -Werror -Wall -g -O0 -D$(PLATFORM)
+    CPPFLAGS = -DHOST $(INCLUDES)
+else
+#Architectures Specific Flags
+	SOURCES = main.c \
+		memory.c \
+		interrupts_msp432p401r_gcc.c \
+		startup_msp432p401r_gcc.c \
+	  	system_msp432p401r.c
+   CPPFLAGS = -DMSP432 $(INCLUDES)
+    PLATFORM=MSP432
     CPU = cortex-m4
     ARCH = thumb
     SPECS = nosys.specs 
@@ -68,46 +64,41 @@ ifeq ($(PLATFORM),MSP432)
     SIZE = arm-none-eabi-size
     LDFLAGS = -Wl,-Map=$(TARGET).map -T $(LINKER_FILE) 
     CFLAGS = -std=c99 -Werror -mcpu=$(CPU) -m$(ARCH) --specs=$(SPECS) -march=$(MARCH) -mfloat-abi=$(ABI) -mfpu=$(FPU) -Wall -g -O0 -D$(PLATFORM)
-    
-endif
+endif 
 
 
+
+# Compiler Flags and Defines
 OBJS = $(SOURCES:.c=.o)
-DEPS = $(SOURCES:.c=.d)
-ASMS = $(SOURCES:.c=.asm)
-PRES = $(SOURCES:.c=.i)
+ASM = $(SOURCES:.c=.asm)
+I = $(SOURCES:.c=.i)
 
-# using -c flag to stop before linking
-%.o : %.c
-	$(CC) -c $< $(CPPFLAGS) $(CFLAGS) -o $@
-
-#using -S to generate assembly file
 %.asm : %.c
-	$(CC) -S $< $(CPPFLAGS) $(CFLAGS) -o $@
+	$(CC) -c $< $(CPPFLAGs) $(CFLAGS) -S -o $@
 
-#using -E to generate preprocessed file , so i only need CPPFLAGS
 %.i : %.c
-	$(CC) -E $< $(CPPFLAGS) -o $@
+	$(CC) -c $< $(CPPFLAGs) $(CFLAGS) -E -o $@
 
-#using -E -M to generate dependency files  
-%.d : %.c
-	$(CC) -E -M $< $(CPPFLAGS) -o $@
+%.o : %.c
+	$(CC) -c $< $(CPPFLAGs) $(CFLAGS) -o $@
 
-# compile-all will generate all object files for all source files without linking
-.PHONY: compile-all
-compile-all:$(OBJS)
 
 .PHONY: build
-build: $(DEPS)
 build: $(TARGET).out
-
 $(TARGET).out: $(OBJS)
-	$(CC) $(OBJS) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-	$(SIZE) $@
+	$(CC) $(OBJS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@
+	
 
+
+.PHONY: compile-all
+compile-all:
+	$(CC) $(CFLAGS) $(CPPFLAGs) -D$(PLATFORM) -c $(OBJS:.o=.c) 
+	
 .PHONY: clean
 clean:
-	rm -f $(OBJS) $(DEPS) $(ASMS) $(PRES) $(TARGET).out $(TARGET).map
+	rm -f $(OBJS) $(TARGET).out $(TARGET).map $(TARGET).i $(TARGET).asm $(I) $(ASM)
 
-
+.PHONY: debug    
+debug:
+	@echo $(CPPFLAGs)
 

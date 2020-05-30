@@ -42,8 +42,8 @@ ifeq ($(PLATFORM),HOST)
     PLATFORM=HOST
     CC = gcc
     LDFLAGS = -Wl,-Map=$(TARGET).map  
-    CFLAGS = -std=c99 -Werror -Wall -g -O0 -D$(PLATFORM)
-    CPPFLAGS = -DHOST $(INCLUDES)
+    CFLAGS = -std=c99 -Werror -Wall -g -O0 $(INCLUDES) -D$(PLATFORM)
+   CPPFLAGS = -DHOST $(INCLUDES)
 else
 #Architectures Specific Flags
 	SOURCES = main.c \
@@ -63,7 +63,7 @@ else
     LD = arm-none-eabi-ld
     SIZE = arm-none-eabi-size
     LDFLAGS = -Wl,-Map=$(TARGET).map -T $(LINKER_FILE) 
-    CFLAGS = -std=c99 -Werror -mcpu=$(CPU) -m$(ARCH) --specs=$(SPECS) -march=$(MARCH) -mfloat-abi=$(ABI) -mfpu=$(FPU) -Wall -g -O0 -D$(PLATFORM)
+    CFLAGS = -std=c99 -Werror -mcpu=$(CPU) -m$(ARCH) --specs=$(SPECS) -march=$(MARCH) -mfloat-abi=$(ABI) -mfpu=$(FPU) -Wall -g -O0 $(INCLUDES) -D$(PLATFORM)
 endif 
 
 
@@ -72,6 +72,7 @@ endif
 OBJS = $(SOURCES:.c=.o)
 ASM = $(SOURCES:.c=.asm)
 I = $(SOURCES:.c=.i)
+
 
 %.asm : %.c
 	$(CC) -c $< $(CPPFLAGs) $(CFLAGS) -S -o $@
@@ -84,10 +85,13 @@ I = $(SOURCES:.c=.i)
 
 
 .PHONY: build
-build: $(TARGET).out
+build : all
+
+.PHONY: all
+all: $(TARGET).out
+
 $(TARGET).out: $(OBJS)
-	$(CC) $(OBJS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@
-	$(SIZE) $@
+	$(CC) $(OBJS) $(CFLAGS) $(LDFLAGS) -o $@
 	
 
 
@@ -97,7 +101,7 @@ compile-all:
 	
 .PHONY: clean
 clean:
-	rm -f $(OBJS) $(TARGET).out $(TARGET).map $(TARGET).i $(TARGET).asm $(I) $(ASM)
+	rm -f $(OBJS) $(TARGET).out $(TARGET).map $(TARGET).i $(TARGET).asm $(I) $(ASM) $(OBJS)
 
 .PHONY: debug    
 debug:
